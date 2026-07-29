@@ -16,5 +16,5 @@ def create_chunks(raw_documents: list[Document]) -> list[Document]:
         chunk_size=1000,
         chunk_overlap=200,
     )
-    documents = text_splitter.split_documents(raw_documents)
-    return documents
+
+    return text_splitter.split_documents(raw_documents)
