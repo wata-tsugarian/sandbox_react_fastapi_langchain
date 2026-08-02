@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+
+from app.routers.llm import router as llm_router
 from app.settings import settings
 
 app = FastAPI()
@@ -15,3 +17,6 @@ def read_root():
 @app.get("/healthz")
 def health_check():
     return {"status": "ok"}
+
+
+app.include_router(llm_router)
