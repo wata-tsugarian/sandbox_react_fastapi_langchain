@@ -178,3 +178,7 @@ pyrightconfig.json
 
 # Chroma
 app/chroma_db
+
+# RAG用にGitLoaderがクローンする外部リポジトリ
+/langchain/
+/langchain_docs/
