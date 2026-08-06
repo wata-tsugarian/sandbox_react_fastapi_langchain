@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from starlette.concurrency import run_in_threadpool
 
 from app.middleware.llm import ollama_client
 from app.retrieval.retriever import search_chunks
@@ -59,7 +60,7 @@ async def generate_answer_stream(question: str) -> AsyncIterator[str]:
     Yields:
         生成した回答内容のイテレーター
     """
-    chunks = search_chunks(question=question)
+    chunks = await run_in_threadpool(search_chunks, question=question)
     if not chunks:
         yield _NOT_FOUND_MESSAGE
         return
