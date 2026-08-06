@@ -1,3 +1,7 @@
+from collections.abc import AsyncIterator
+
+from langchain_core.documents import Document
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.middleware.llm import ollama_client
@@ -17,6 +21,14 @@ _PROMPT = ChatPromptTemplate.from_messages(
     ]
 )
 
+_CHAIN = _PROMPT | ollama_client.llm | StrOutputParser()
+
+_NOT_FOUND_MESSAGE = "参考情報が見つからないため分かりません。"
+
+
+def _build_context(chunks: list[Document]) -> str:
+    return "\n\n".join(doc.page_content for doc in chunks)
+
 
 def generate_answer(question: str) -> str:
     """質問に対して回答を生成
@@ -29,12 +41,30 @@ def generate_answer(question: str) -> str:
     """
     chunks = search_chunks(question=question)
     if not chunks:
-        return "参考情報が見つからないため分かりません。"
+        return _NOT_FOUND_MESSAGE
 
-    context = "\n\n".join(doc.page_content for doc in chunks)
+    context = _build_context(chunks=chunks)
 
-    chain = _PROMPT | ollama_client.llm
+    response = _CHAIN.invoke({"context": context, "question": question})
 
-    response = chain.invoke({"context": context, "question": question})
+    return response
 
-    return str(response.content)
+
+async def generate_answer_stream(question: str) -> AsyncIterator[str]:
+    """質問に対して回答をストリーミング生成
+
+    Args:
+        question: ユーザーの質問
+
+    Yields:
+        生成した回答内容のイテレーター
+    """
+    chunks = search_chunks(question=question)
+    if not chunks:
+        yield _NOT_FOUND_MESSAGE
+        return
+
+    context = _build_context(chunks=chunks)
+
+    async for chunk in _CHAIN.astream({"context": context, "question": question}):
+        yield chunk
