@@ -1,9 +1,8 @@
-import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterable
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.sse import EventSourceResponse
 
 from app.generation.generator import generate_answer, generate_answer_stream
 from app.schemas.prompt import PromptRequest, PromptResponse
@@ -27,27 +26,15 @@ def llm_generate_answer(payload: PromptRequest):
         ) from e
 
 
-def _sse(payload: dict) -> str:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+@router.post("/prompt/stream", response_class=EventSourceResponse)
+async def llm_generate_answer_stream(
+    payload: PromptRequest,
+) -> AsyncIterable[PromptResponse]:
+    chunks = generate_answer_stream(question=payload.prompt)
 
-
-async def _sse_stream(question: str) -> AsyncIterator[str]:
     try:
-        async for chunk in generate_answer_stream(question=question):
-            yield _sse(payload={"type": "chunk", "content": chunk})
+        async for chunk in chunks:
+            yield PromptResponse(response=chunk)
     except Exception:
-        logger.exception("ストリーミング生成に失敗しました。")
-        yield _sse(
-            payload={"type": "error", "message": "ストリーミング生成に失敗しました。"}
-        )
-
-    yield _sse(payload={"type": "done"})
-
-
-@router.post("/prompt/stream")
-async def llm_generate_answer_stream(payload: PromptRequest):
-    return StreamingResponse(
-        _sse_stream(question=payload.prompt),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+        logger.exception("回答生成に失敗しました。")
+        yield PromptResponse(response="LLMサーバーが接続されていません。")
