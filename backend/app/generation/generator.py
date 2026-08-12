@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterable
 
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -51,7 +51,7 @@ def generate_answer(question: str) -> str:
     return response
 
 
-async def generate_answer_stream(question: str) -> AsyncIterator[str]:
+async def generate_answer_stream(question: str) -> AsyncIterable[str]:
     """質問に対して回答をストリーミング生成
 
     Args:
