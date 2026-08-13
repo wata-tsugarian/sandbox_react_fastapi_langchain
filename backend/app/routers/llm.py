@@ -2,7 +2,7 @@ import logging
 from collections.abc import AsyncIterable
 
 from fastapi import APIRouter, HTTPException
-from fastapi.sse import EventSourceResponse
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from app.generation.generator import generate_answer, generate_answer_stream
 from app.schemas.prompt import PromptRequest, PromptResponse
@@ -29,12 +29,22 @@ def llm_generate_answer(payload: PromptRequest):
 @router.post("/prompt/stream", response_class=EventSourceResponse)
 async def llm_generate_answer_stream(
     payload: PromptRequest,
-) -> AsyncIterable[PromptResponse]:
+) -> AsyncIterable[ServerSentEvent]:
     chunks = generate_answer_stream(question=payload.prompt)
 
     try:
         async for chunk in chunks:
-            yield PromptResponse(response=chunk)
+            yield ServerSentEvent(
+                data=PromptResponse(response=chunk),
+                event="chunk",
+            )
+        yield ServerSentEvent(
+            data=PromptResponse(response=""),
+            event="done",
+        )
     except Exception:
         logger.exception("回答生成に失敗しました。")
-        yield PromptResponse(response="LLMサーバーが接続されていません。")
+        yield ServerSentEvent(
+            data=PromptResponse(response="LLMサーバーが接続されていません。"),
+            event="error",
+        )
